@@ -155,4 +155,7 @@ if st.button("Export Invoice PDF and QR Code"):
                     dst.write(src.read())
                 st.success(f"Invoice PDF also saved to: {user_pdf_path}")
             except Exception as e:
-                st.error(f"Failed to save PDF to directory: {e}") 
+                st.error(f"Failed to save PDF to directory: {e}")
+
+# --- Footer/Emblem ---
+st.markdown('<div style="text-align:center; color: #888; font-size: 13px; margin-top: 40px;">©2025 MEJA TECH SOLUTIONS</div>', unsafe_allow_html=True) 

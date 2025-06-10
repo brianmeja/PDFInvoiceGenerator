@@ -125,6 +125,13 @@ def generate_invoice(
     os.remove(qr_filename)
 
     c.save()
+
+    # Add company emblem at the bottom center
+    c.setFont("Helvetica-Oblique", 9)
+    c.setFillColor(colors.grey)
+    c.drawCentredString(width / 2, 30, "©2025 MEJA TECH SOLUTIONS")
+    c.setFillColor(colors.black)
+    c.save()
     print(f"Invoice saved to {output_path}")
 
 
