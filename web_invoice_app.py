@@ -9,7 +9,17 @@ st.title("PDF Invoice Generator")
 
 # --- Sidebar for Styling and Currency ---
 st.sidebar.header("Invoice Style & Settings")
-currency = st.sidebar.selectbox("Currency Symbol", ["$", "€", "£", "₹", "¥", "₦", "₽", "₩", "₺", "₴", "₫", "₲", "₪", "₱", "฿", "₡", "₵", "₸", "₭", "₮", "₦", "₨", "₩", "₸", "₺", "₼", "₾", "₿"])
+world_currencies = [
+    ("USD", "$"), ("EUR", "€"), ("GBP", "£"), ("KES", "Ksh"), ("INR", "₹"), ("JPY", "¥"), ("CNY", "¥"), ("NGN", "₦"), ("RUB", "₽"), ("KRW", "₩"), ("TRY", "₺"), ("UAH", "₴"), ("VND", "₫"), ("PYG", "₲"), ("ILS", "₪"), ("PHP", "₱"), ("THB", "฿"), ("CRC", "₡"), ("GHS", "₵"), ("KZT", "₸"), ("LAK", "₭"), ("MNT", "₮"), ("PKR", "₨"), ("AZN", "₼"), ("GEL", "₾"), ("BTC", "₿"), ("ZAR", "R"), ("AUD", "$"), ("CAD", "$"), ("SGD", "$"), ("CHF", "Fr"), ("SEK", "kr"), ("NOK", "kr"), ("DKK", "kr"), ("PLN", "zł"), ("CZK", "Kč"), ("HUF", "Ft"), ("BRL", "R$"), ("MXN", "$"), ("CLP", "$"), ("COP", "$"), ("ARS", "$"), ("EGP", "E£"), ("SAR", "ر.س"), ("AED", "د.إ"), ("QAR", "ر.ق"), ("BHD", ".د.ب"), ("OMR", "ر.ع."), ("KWD", "د.ك"), ("JOD", "د.ا"), ("LBP", "ل.ل"), ("TND", "د.ت"), ("MAD", "د.م."), ("DZD", "دج"), ("TWD", "NT$"), ("HKD", "HK$"), ("MYR", "RM"), ("IDR", "Rp"), ("BDT", "৳"), ("LKR", "₨"), ("NPR", "₨"), ("MMK", "K"), ("THB", "฿"), ("SGD", "$"), ("NZD", "$"), ("FJD", "$"), ("PGK", "K"), ("SBD", "$"), ("VUV", "Vt"), ("WST", "WS$"), ("TOP", "T$"), ("TMT", "m"), ("UZS", "so'm"), ("KGS", "лв"), ("AFN", "؋"), ("IRR", "﷼"), ("IQD", "ع.د"), ("SYP", "£S"), ("YER", "﷼"), ("SDG", "ج.س."), ("SOS", "S"), ("TZS", "TSh"), ("UGX", "USh"), ("RWF", "FRw"), ("BIF", "FBu"), ("MWK", "MK"), ("ZMW", "ZK"), ("MZN", "MT"), ("AOA", "Kz"), ("XOF", "CFA"), ("XAF", "FCFA"), ("XPF", "₣"), ("Custom", "Custom")
+]
+currency_options = [f"{code} ({symbol})" for code, symbol in world_currencies]
+currency_selection = st.sidebar.selectbox("Currency", currency_options)
+if currency_selection == "Custom (Custom)":
+    currency = st.sidebar.text_input("Enter custom currency code or symbol", "¤")
+else:
+    idx = currency_options.index(currency_selection)
+    currency = world_currencies[idx][1]
+
 theme_color = st.sidebar.color_picker("Theme Color", "#4F8EF7")
 font_size = st.sidebar.slider("Font Size (pt)", 8, 20, 10)
 
@@ -45,14 +55,54 @@ if st.button("Add Custom Field"):
 # --- Product Table ---
 st.header("Products/Services")
 def_currency = currency if currency else "$"
-products = st.experimental_data_editor([
+products = st.data_editor([
     {"Item": "001", "Description": "Product A", "Quantity": 2, "Unit Price": 10.0},
     {"Item": "002", "Description": "Product B", "Quantity": 1, "Unit Price": 15.0},
 ], num_rows="dynamic", use_container_width=True, key="products")
 
+# --- VAT Section ---
+st.header("VAT Settings")
+vat_percentage = st.number_input("VAT Percentage (%)", min_value=0.0, max_value=100.0, value=16.0, step=0.1)
+
 # --- QR Code Data ---
 st.header("QR Code for Payment")
 qr_data = st.text_input("Enter payment link or details", "Pay to: 1234567890")
+
+# --- Export Directory and Filename ---
+st.header("Export Options")
+save_dir = st.text_input("Optional: Enter directory path to save PDF invoice (leave blank to skip)")
+custom_filename = st.text_input("Enter PDF filename (default: invoice.pdf)", value="invoice.pdf")
+
+# --- Calculate Totals ---
+subtotal = 0.0
+vat_total = 0.0
+invoice_items = [["Item", "Description", "Quantity", "Unit Price", "Total (excl. VAT)", f"VAT ({vat_percentage:.1f}%)", "Total (incl. VAT)"]]
+for row in products:
+    qty = float(row["Quantity"])
+    price = float(row["Unit Price"])
+    line_total = qty * price
+    line_vat = line_total * (vat_percentage / 100)
+    line_total_incl_vat = line_total + line_vat
+    subtotal += line_total
+    vat_total += line_vat
+    invoice_items.append([
+        row["Item"],
+        row["Description"],
+        str(qty),
+        f"{currency}{price:.2f}",
+        f"{currency}{line_total:.2f}",
+        f"{currency}{line_vat:.2f}",
+        f"{currency}{line_total_incl_vat:.2f}"
+    ])
+grand_total = subtotal + vat_total
+invoice_items.append(["", "", "", "Subtotal", f"{currency}{subtotal:.2f}", "", ""])
+invoice_items.append(["", "", "", f"VAT ({vat_percentage:.1f}%)", f"{currency}{vat_total:.2f}", "", ""])
+invoice_items.append(["", "", "", "Grand Total", f"{currency}{grand_total:.2f}", "", ""])
+
+# --- Show Totals ---
+st.markdown(f"**Subtotal:** {currency}{subtotal:.2f}")
+st.markdown(f"**Total VAT ({vat_percentage:.1f}%):** {currency}{vat_total:.2f}")
+st.markdown(f"**Grand Total:** {currency}{grand_total:.2f}")
 
 # --- Export Button ---
 if st.button("Export Invoice PDF and QR Code"):
@@ -63,24 +113,12 @@ if st.button("Export Invoice PDF and QR Code"):
             logo_path = os.path.join(tmpdir, logo_file.name)
             with open(logo_path, "wb") as f:
                 f.write(logo_file.read())
-        # Prepare invoice items
-        invoice_items = [["Item", "Description", "Quantity", "Unit Price", "Total"]]
-        total = 0.0
-        for row in products:
-            qty = float(row["Quantity"])
-            price = float(row["Unit Price"])
-            line_total = qty * price
-            total += line_total
-            invoice_items.append([
-                row["Item"],
-                row["Description"],
-                str(qty),
-                f"{currency}{price:.2f}",
-                f"{currency}{line_total:.2f}"
-            ])
-        invoice_items.append(["", "", "", "Total", f"{currency}{total:.2f}"])
+        # Ensure filename ends with .pdf
+        filename = custom_filename.strip()
+        if not filename.lower().endswith(".pdf"):
+            filename += ".pdf"
         # Output paths
-        pdf_path = os.path.join(tmpdir, "invoice.pdf")
+        pdf_path = os.path.join(tmpdir, filename)
         qr_path = os.path.join(tmpdir, "qr.png")
         # Generate files
         generate_invoice(
@@ -97,11 +135,24 @@ if st.button("Export Invoice PDF and QR Code"):
             custom_fields=custom_fields,
             theme_color=theme_color,
             font_size=font_size,
-            currency=currency
+            currency=currency,
+            vat_percentage=vat_percentage,
+            subtotal=subtotal,
+            vat_total=vat_total,
+            grand_total=grand_total
         )
         generate_qr_code(qr_data, qr_path)
         # Download buttons
         with open(pdf_path, "rb") as f:
-            st.download_button("Download Invoice PDF", f, file_name="invoice.pdf", mime="application/pdf")
+            st.download_button("Download Invoice PDF", f, file_name=filename, mime="application/pdf")
         with open(qr_path, "rb") as f:
-            st.download_button("Download QR Code Image", f, file_name="qr.png", mime="image/png") 
+            st.download_button("Download QR Code Image", f, file_name="qr.png", mime="image/png")
+        # Save to user directory if provided
+        if save_dir:
+            try:
+                user_pdf_path = os.path.join(save_dir, filename)
+                with open(pdf_path, "rb") as src, open(user_pdf_path, "wb") as dst:
+                    dst.write(src.read())
+                st.success(f"Invoice PDF also saved to: {user_pdf_path}")
+            except Exception as e:
+                st.error(f"Failed to save PDF to directory: {e}") 
